@@ -1,5 +1,5 @@
 import argparse
-from src.commands.add.add import reg_add_cmd
+from src.commands.path_CRUD.add import reg_add_cmd
 from src.commands.to.to import reg_to_cmd
 
 def main():
