@@ -3,30 +3,36 @@ from datetime import datetime, timezone
 from pathlib import Path
 import json
 from rich.console import Console
+from rich.table import Table
+
+console = Console()
+
+YELLOW = "yellow"
+GREEN = "#0af034"
+ORANGE = "#ab8a07"
+RED = "#c71208"
 
 class PathHandler:
     def __init__(self):
         self.aliases = self._load_json()
-        self.abort_keywords = ['abort', 'x', 'exit', ':q', 'quit']
+        self.abort_keywords = ["abort", "x", "exit", ":q", "quit"]
         self.cancel_process = "USER_REQ_CANCEL"
 
     ########### REUSABLE METHODS ###########
     def _load_json(self):
-        #If json nonexistent, create it, otherwise load it up
+        # If json nonexistent, create it, otherwise load it up
         try:
-            with open(ALIASES_FILE, 'r') as f:
+            with open(ALIASES_FILE, "r") as f:
                 config = json.load(f)
         except FileNotFoundError:
             config = {}
-            with open(ALIASES_FILE, 'x') as f:
+            with open(ALIASES_FILE, "x") as f:
                 json.dump(config, f, indent=4)
         return config
-    
 
     def _get_alias_data(self, key):
         return [data[key] for data in self.aliases.values()]
-    
- 
+
     def _validate_input(self, msg):
         while True:
             user_input = input(msg).strip()
@@ -52,56 +58,162 @@ class PathHandler:
         else:
             validated_path = str(Path.cwd().resolve())
 
-        curr_paths = self._get_alias_data('path')
+        curr_paths = self._get_alias_data("path")
 
         if validated_path in curr_paths:
             raise ValueError(f"\nPath already is attached to an alias\n")
-        
-        self.new_alias['path'] = validated_path
 
-    
+        self.new_alias["path"] = validated_path
+
     def _validate_path(self, path_str):
         path = Path(path_str).expanduser().resolve()
         if not path.exists():
             raise ValueError("Path does not exist")
-        
+
         if not path.is_dir():
             raise ValueError("Path is not a directory")
-        
+
         return path
 
-
     def add_description(self, desc):
-        
-        self.new_alias['description'] = desc
 
+        self.new_alias["description"] = desc
 
     def _new_alias_blueprint(self):
         return {
             "path": "",
             "description": None,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": str(datetime.now(timezone.utc).isoformat()),
             "last_used": None,
             "usage": 0,
-            "tags": []
+            "tags": [],
         }
-    
 
     def complete_add_transaction(self):
         self.aliases[self.new_alias_name] = self.new_alias
 
-        with open(ALIASES_FILE, 'w') as f:
+        with open(ALIASES_FILE, "w") as f:
             json.dump(self.aliases, f, indent=4)
 
         print("\nSuccessfully added new alias\n")
-    
 
     ###### READ METHODS ######
+    def read_aliases(self, alias_name=None, search_val=None):
+        if not self.aliases:
+            console.print("\n[i][red]No data to display...[/red][/i]\n")
+            return
 
-    
+        if search_val:
+            matches = {k: v for k, v in self.aliases.items() if search_val.lower() in k.lower()}
+            if not matches:
+                console.print(f"\n[i][red]No aliases matching '{search_val}'[/red][/i]\n")
+                return
+            self._print_table(matches)
+            return
 
+        if alias_name:
+            if alias_name not in self.aliases:
+                console.print(
+                    f"\n[i][red]'{alias_name}' is not an existing alias[/red][/i]\n"
+                )
+                return
+            self._print_table({alias_name: self.aliases[alias_name]})
+            return
+
+        self._print_table(self.aliases)
+
+    def _print_table(self, data):
+        table = self._create_table()
+        for alias, md in data.items():
+            last_used = md.get('last_used')
+            if last_used:
+                last_used = datetime.fromisoformat(last_used).strftime('%Y-%m-%d')
+            path = md.get('path')
+            usage = (
+                f"[{RED}]{md.get('usage')}[/{RED}]" if md.get('usage') == 0 else 
+                f"[{ORANGE}]{md.get('usage')}[/{ORANGE}]" if md.get('usage') < 20 else
+                f"[{GREEN}]{md.get('usage')}[/{GREEN}]")
+            table.add_row(
+                alias,
+                f"[{YELLOW}]{self._shorten_path(path)}[/{YELLOW}]" if path else '---',
+                md.get('description') or '---',
+                self._get_alias_age(md['created_at']),
+                last_used or '---',
+                usage,
+            )
+        console.print(table)
+
+    def _create_table(self):
+        table = Table(title="\n[bold]Alias List[/bold]\n", title_justify="center", caption="\n")
+
+        table.add_column(header="[cyan][bold]Alias Name[/bold][/cyan]", min_width=5, max_width=15, no_wrap=True)
+        table.add_column(header="[cyan][bold]Path[/bold][/cyan]", min_width=10, max_width=30, no_wrap=True)
+        table.add_column(header="[cyan][bold]Description[/bold][/cyan]", min_width=10, max_width=50, no_wrap=True)
+        table.add_column(header="[cyan][bold]Alias Age[/bold][/cyan]", max_width=20, no_wrap=True)
+        table.add_column(header="[cyan][bold]Last Used[/bold][/cyan]", max_width=10, no_wrap=True)
+        table.add_column(header="[cyan][bold]Usage Count[/bold][/cyan]", justify="center")
+        return table
+
+    def _shorten_path(self, path_str):
+        path = Path(path_str)
+        try:
+            relative = path.relative_to(Path.home())
+            return "~/" + relative.as_posix()
+        except ValueError:
+            return path_str
+
+    def _get_alias_age(self, created_at: str):
+        created = datetime.fromisoformat(created_at)
+        now = datetime.now(timezone.utc)
+        delta = now - created
+
+        total_seconds = delta.total_seconds()
+        total_minutes = total_seconds / 60
+        total_hours = total_minutes / 60
+        total_days = delta.days
+
+        if total_seconds < 60:
+            s = round(total_seconds)
+            return f"[{GREEN}]{s} second{'s' if s != 1 else ''}[/{GREEN}]"
+
+        if total_minutes < 50:
+            m = round(total_minutes)
+            return f"[{GREEN}]{m} minute{'s' if m != 1 else ''}[/{GREEN}]"
+
+        if total_hours < 24:
+            h = max(1, round(total_hours))
+            return f"[{GREEN}]{h} hour{'s' if h != 1 else ''}[/{GREEN}]"
+
+        if total_days < 7:
+            return f"[{GREEN}]{total_days} day{'s' if total_days != 1 else ''}[/{GREEN}]"
+
+        if total_days < 42:
+            w = round(total_days / 7)
+            return f"[{GREEN}]{w} week{'s' if w != 1 else ''}[/{GREEN}]"
+
+        if total_days <= 366:
+            mo = round(total_days / 30.44)
+            return f"[{ORANGE}]{mo} month{'s' if mo != 1 else ''}[/{ORANGE}]"
+
+        years = total_days // 365
+        remaining_days = total_days - (years * 365)
+        year_str = f"{years} year{'s' if years != 1 else ''}"
+
+        remainder = self._format_remaining_days(remaining_days)
+        color = ORANGE if remaining_days < 42 else RED
+        return f"[{color}]{year_str} {remainder}[/{color}]" if remainder else f"[{color}]{year_str}[/{color}]"
+
+    def _format_remaining_days(self, days: int):
+        if days == 0:
+            return ""
+        if days < 7:
+            return f"{days} day{'s' if days != 1 else ''}"
+        if days < 42:
+            w = round(days / 7)
+            return f"{w} week{'s' if w != 1 else ''}"
+        mo = round(days / 30.44)
+        return f"{mo} month{'s' if mo != 1 else ''}"
 
     ###### UPDATE METHODS ######
-
 
     ###### DELETE METHODS ######
