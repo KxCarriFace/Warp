@@ -26,12 +26,13 @@ class PathHandler:
                 config = json.load(f)
         except FileNotFoundError:
             config = {}
+            ALIASES_FILE.parent.mkdir(parents=True, exist_ok=True)
             with open(ALIASES_FILE, "x") as f:
                 json.dump(config, f, indent=4)
         return config
 
     def _get_alias_data(self, key):
-        return [data[key] for data in self.aliases.values()]
+        return [data.get(key) for data in self.aliases.values()]
 
     def _validate_input(self, msg):
         while True:
@@ -39,7 +40,7 @@ class PathHandler:
             if user_input in self.abort_keywords:
                 raise KeyboardInterrupt()
             if user_input == "":
-                print("Input cannot be empty, please try again. Type 'cancel' to exit")
+                print("Input cannot be empty, please try again. Type 'cancel' to soft-cancel or 'exit'/'quit' to abort")
                 continue
             if user_input.lower() == "cancel":
                 print("Cancelling...\n")
@@ -52,11 +53,13 @@ class PathHandler:
         self.new_alias = self._new_alias_blueprint()
         self.new_alias_name = alias_name
         if alias_name in self.aliases:
-            raise ValueError(f"\n{alias_name} already exists")
-        if path:
-            validated_path = str(self._validate_path(path))
-        else:
+            raise ValueError(f"'{alias_name}' already exists")
+        if not path:
+            raise ValueError("A path must be provided. Use '.' to use the current directory.")
+        if path == ".":
             validated_path = str(Path.cwd().resolve())
+        else:
+            validated_path = str(self._validate_path(path))
 
         curr_paths = self._get_alias_data("path")
 
@@ -76,7 +79,8 @@ class PathHandler:
         return path
 
     def add_description(self, desc):
-
+        if not hasattr(self, 'new_alias'):
+            raise RuntimeError("add_new_alias must be called before add_description")
         self.new_alias["description"] = desc
 
     def _new_alias_blueprint(self):
@@ -90,23 +94,25 @@ class PathHandler:
         }
 
     def complete_add_transaction(self):
+        if not hasattr(self, 'new_alias') or not hasattr(self, 'new_alias_name'):
+            raise RuntimeError("add_new_alias must be called before complete_add_transaction")
         self.aliases[self.new_alias_name] = self.new_alias
 
         with open(ALIASES_FILE, "w") as f:
             json.dump(self.aliases, f, indent=4)
 
-        print("\nSuccessfully added new alias\n")
+        console.print(f"\n[{GREEN}]Successfully added new alias[/{GREEN}]\n")
 
     ###### READ METHODS ######
     def read_aliases(self, alias_name=None, search_val=None):
         if not self.aliases:
-            console.print("\n[i][red]No data to display...[/red][/i]\n")
+            console.print(f"\n[i][{RED}]No data to display...[/{RED}][/i]\n")
             return
 
         if search_val:
             matches = {k: v for k, v in self.aliases.items() if search_val.lower() in k.lower()}
             if not matches:
-                console.print(f"\n[i][red]No aliases matching '{search_val}'[/red][/i]\n")
+                console.print(f"\n[i][{RED}]No aliases matching '{search_val}'[/{RED}][/i]\n")
                 return
             self._print_table(matches)
             return
@@ -114,7 +120,7 @@ class PathHandler:
         if alias_name:
             if alias_name not in self.aliases:
                 console.print(
-                    f"\n[i][red]'{alias_name}' is not an existing alias[/red][/i]\n"
+                    f"\n[i][{RED}]'{alias_name}' is not an existing alias[/{RED}][/i]\n"
                 )
                 return
             self._print_table({alias_name: self.aliases[alias_name]})
@@ -200,8 +206,7 @@ class PathHandler:
         year_str = f"{years} year{'s' if years != 1 else ''}"
 
         remainder = self._format_remaining_days(remaining_days)
-        color = ORANGE if remaining_days < 42 else RED
-        return f"[{color}]{year_str} {remainder}[/{color}]" if remainder else f"[{color}]{year_str}[/{color}]"
+        return f"[{RED}]{year_str} {remainder}[/{RED}]" if remainder else f"[{RED}]{year_str}[/{RED}]"
 
     def _format_remaining_days(self, days: int):
         if days == 0:

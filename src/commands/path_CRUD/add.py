@@ -1,5 +1,8 @@
 import sys
 from src.commands.PathHandler import PathHandler
+from rich.console import Console
+
+console = Console()
 
 
 #REGISTER COMMANDS/SUBCOMMANDS AND OPTIONS
@@ -14,7 +17,7 @@ def reg_add_cmd(subparsers):
         help="Name of the alias"
     )
     parser.add_argument(
-        "-p", "--path",
+        "path",
         metavar="DIRECTORY_PATH",
         help="Optional path (defaults to current directory)"
     )
@@ -39,10 +42,10 @@ def add_alias(args):
         alias_handler.complete_add_transaction()
 
     except ValueError as e:
-        print(f"Error: {e}")
+        console.print(f"\n[red]{e}[/red]\n")
         sys.exit(1)
     
     except KeyboardInterrupt:
-        print("\nAborted procedure safely")
+        print("[yellow]\nAborted procedure safely[/yellow]")
         sys.exit(1)
 
