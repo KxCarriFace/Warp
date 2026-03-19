@@ -64,7 +64,7 @@ class PathHandler:
         curr_paths = self._get_alias_data("path")
 
         if validated_path in curr_paths:
-            raise ValueError(f"\nPath already is attached to an alias\n")
+            raise ValueError(f"Path already is attached to an alias")
 
         self.new_alias["path"] = validated_path
 
@@ -79,8 +79,6 @@ class PathHandler:
         return path
 
     def add_description(self, desc):
-        if not hasattr(self, 'new_alias'):
-            raise RuntimeError("add_new_alias must be called before add_description")
         self.new_alias["description"] = desc
 
     def _new_alias_blueprint(self):
@@ -94,8 +92,6 @@ class PathHandler:
         }
 
     def complete_add_transaction(self):
-        if not hasattr(self, 'new_alias') or not hasattr(self, 'new_alias_name'):
-            raise RuntimeError("add_new_alias must be called before complete_add_transaction")
         self.aliases[self.new_alias_name] = self.new_alias
 
         with open(ALIASES_FILE, "w") as f:
@@ -157,7 +153,7 @@ class PathHandler:
         table.add_column(header="[cyan][bold]Description[/bold][/cyan]", min_width=10, max_width=50, no_wrap=True)
         table.add_column(header="[cyan][bold]Alias Age[/bold][/cyan]", max_width=20, no_wrap=True)
         table.add_column(header="[cyan][bold]Last Used[/bold][/cyan]", max_width=10, no_wrap=True)
-        table.add_column(header="[cyan][bold]Usage Count[/bold][/cyan]", justify="center")
+        table.add_column(header="[cyan][bold]Usage[/bold][/cyan]", justify="center")
         return table
 
     def _shorten_path(self, path_str):
@@ -220,5 +216,47 @@ class PathHandler:
         return f"{mo} month{'s' if mo != 1 else ''}"
 
     ###### UPDATE METHODS ######
+    def _get_alias(self, alias_name):
+        if alias_name not in self.aliases:
+            raise ValueError(f"'{alias_name}' does not exist")
+        return self.aliases[alias_name]
+
+    def update_name(self, alias_name, new_name):
+        self._get_alias(alias_name)
+        if alias_name == new_name:
+            console.print(f"\n[{YELLOW}]'{alias_name}' is already named that[/{YELLOW}]\n")
+            return False
+        if new_name in self.aliases:
+            raise ValueError(f"'{new_name}' is already in use")
+        self.aliases[new_name] = self.aliases.pop(alias_name)
+        return True
+
+    def update_path(self, alias_name, new_path):
+        alias = self._get_alias(alias_name)
+        if new_path == ".":
+            validated_path = str(Path.cwd().resolve())
+        else:
+            validated_path = str(self._validate_path(new_path))
+
+        if alias["path"] == validated_path:
+            console.print(f"\n[{YELLOW}]'{alias_name}' is already set to that path[/{YELLOW}]\n")
+            return False
+
+        curr_paths = self._get_alias_data("path")
+        if validated_path in curr_paths:
+            raise ValueError("Path is already attached to an alias")
+
+        alias["path"] = validated_path
+        return True
+
+    def update_description(self, alias_name, new_desc):
+        alias = self._get_alias(alias_name)
+        alias["description"] = new_desc
+
+    def complete_update_transaction(self, alias_name):
+        with open(ALIASES_FILE, "w") as f:
+            json.dump(self.aliases, f, indent=4)
+
+        console.print(f"\n[{GREEN}]Successfully updated '{alias_name}'[/{GREEN}]\n")
 
     ###### DELETE METHODS ######
