@@ -29,9 +29,12 @@ def reg_add_cmd(subparsers):
     )
 
 
-    parser.set_defaults(func=add_alias)
+    parser.set_defaults(func=lambda args: add_alias(args, parser))
 
-def add_alias(args):
+def add_alias(args, parser):
+    if not any([args.alias, args.path]):
+        parser.error("An 'alias name' and a 'path' must be provided to create a new alias tag")
+
     alias_handler = PathHandler()
     try:
         alias_handler.add_new_alias(args.alias, args.path)
