@@ -12,14 +12,14 @@ def reg_add_cmd(subparsers):
         help="Add warp alias to [path] or current working directory"
     )
     parser.add_argument(
+        "path",
+        metavar="DIRECTORY_PATH",
+        help="Path to the directory (use '.' for current directory)"
+    )
+    parser.add_argument(
         "alias",
         metavar="NEW_ALIAS_NAME",
         help="Name of the alias"
-    )
-    parser.add_argument(
-        "path",
-        metavar="DIRECTORY_PATH",
-        help="Optional path (defaults to current directory)"
     )
 
     parser.add_argument(

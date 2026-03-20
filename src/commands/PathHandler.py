@@ -56,10 +56,7 @@ class PathHandler:
             raise ValueError(f"'{alias_name}' already exists")
         if not path:
             raise ValueError("A path must be provided. Use '.' to use the current directory.")
-        if path == ".":
-            validated_path = str(Path.cwd().resolve())
-        else:
-            validated_path = str(self._validate_path(path))
+        validated_path = str(self._validate_path(path))
 
         curr_paths = self._get_alias_data("path")
 
@@ -69,7 +66,10 @@ class PathHandler:
         self.new_alias["path"] = validated_path
 
     def _validate_path(self, path_str):
-        path = Path(path_str).expanduser().resolve()
+        path = Path(path_str).expanduser()
+        if not path.is_absolute():
+            path = Path.cwd() / path
+        path = path.resolve()
         if not path.exists():
             raise ValueError("Path does not exist")
 
@@ -233,10 +233,7 @@ class PathHandler:
 
     def update_path(self, alias_name, new_path):
         alias = self._get_alias(alias_name)
-        if new_path == ".":
-            validated_path = str(Path.cwd().resolve())
-        else:
-            validated_path = str(self._validate_path(new_path))
+        validated_path = str(self._validate_path(new_path))
 
         if alias["path"] == validated_path:
             console.print(f"\n[{YELLOW}]'{alias_name}' is already set to that path[/{YELLOW}]\n")
@@ -260,3 +257,22 @@ class PathHandler:
         console.print(f"\n[{GREEN}]Successfully updated '{alias_name}'[/{GREEN}]\n")
 
     ###### DELETE METHODS ######
+
+    def delete_alias(self, alias_name):
+        try:
+            res = self._validate_input("\nAre you sure you want to delete? Deletion is permanent. (y/N)")
+            if res.lower() in ['yes', 'y', 'yeah', 'yea', 'ye']:
+
+                self.aliases.pop(alias_name)
+            else:
+                console.print(f"\n[{YELLOW}]Deletion cancelled...[/{YELLOW}]\n")
+                return
+        except KeyError:
+            console.print(f"\n[{YELLOW}]Error: {alias_name} does not exist. No aliases were removed.[/{YELLOW}]")
+            return
+        
+        with open(ALIASES_FILE, 'w') as f:
+            json.dump(self.aliases, f, indent=4)
+        
+        console.print(f"\n[{YELLOW}]Successfully [underline]deleted[/underline] {alias_name}[/{YELLOW}]\n")
+        
