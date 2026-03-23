@@ -128,12 +128,13 @@ class PathHandler:
         table = self._create_table()
         for alias, md in data.items():
             last_used = md.get('last_used')
+            #TODO normalize so that if the date is same day, show a date and a time, hh:mmAM/PM, otherwise show date only
             if last_used:
                 last_used = datetime.fromisoformat(last_used).strftime('%Y-%m-%d')
             path = md.get('path')
             usage = (
                 f"[{RED}]{md.get('usage')}[/{RED}]" if md.get('usage') == 0 else 
-                f"[{ORANGE}]{md.get('usage')}[/{ORANGE}]" if md.get('usage') < 20 else
+                f"[{YELLOW}]{md.get('usage')}[/{YELLOW}]" if md.get('usage') < 20 else
                 f"[{GREEN}]{md.get('usage')}[/{GREEN}]")
             table.add_row(
                 alias,
@@ -275,4 +276,7 @@ class PathHandler:
             json.dump(self.aliases, f, indent=4)
         
         console.print(f"\n[{YELLOW}]Successfully [underline]deleted[/underline] {alias_name}[/{YELLOW}]\n")
-        
+
+    def write_config(self):
+        with open(ALIASES_FILE, "w") as f:
+            json.dump(self.aliases, f, indent=4)
