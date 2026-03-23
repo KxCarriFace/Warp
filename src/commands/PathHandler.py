@@ -11,6 +11,7 @@ YELLOW = "yellow"
 GREEN = "#0af034"
 ORANGE = "#ab8a07"
 RED = "#c71208"
+TURQ = "#0799a3"
 
 class PathHandler:
     def __init__(self):
@@ -119,18 +120,30 @@ class PathHandler:
                     f"\n[i][{RED}]'{alias_name}' is not an existing alias[/{RED}][/i]\n"
                 )
                 return
-            self._print_table({alias_name: self.aliases[alias_name]})
+            self._print_specific_alias({alias_name: self.aliases[alias_name]})
             return
 
         self._print_table(self.aliases)
+
+    def _print_specific_alias(self, data):
+        for alias, md in data.items():
+            console.print(f"\n[{TURQ}]Alias Name:[/{TURQ}] {alias}")
+            console.print(f"[{TURQ}]Path:[/{TURQ}] {md.get('path', "---")}")
+            console.print(f"[{TURQ}]Description:[/{TURQ}] {md.get('description', "---")}")
+            console.print(f"[{TURQ}]Alias Age:[/{TURQ}]")
+            console.print(f"[{TURQ}]Last Used:[/{TURQ}]")
+            console.print(f"[{TURQ}]Usage:[/{TURQ}] [{YELLOW}]{md.get('usage', 0)}[/{YELLOW}]\n")
 
     def _print_table(self, data):
         table = self._create_table()
         for alias, md in data.items():
             last_used = md.get('last_used')
-            #TODO normalize so that if the date is same day, show a date and a time, hh:mmAM/PM, otherwise show date only
             if last_used:
-                last_used = datetime.fromisoformat(last_used).strftime('%Y-%m-%d')
+                last_used_dt = datetime.fromisoformat(last_used)
+                if last_used_dt.date() == datetime.now().date():
+                    last_used = last_used_dt.strftime('%m-%d-%Y %I:%M %p')
+                else:
+                    last_used = last_used_dt.strftime('%m-%d-%Y')
             path = md.get('path')
             usage = (
                 f"[{RED}]{md.get('usage')}[/{RED}]" if md.get('usage') == 0 else 
@@ -150,10 +163,10 @@ class PathHandler:
         table = Table(title="\n[bold]Alias List[/bold]\n", title_justify="center", caption="\n")
 
         table.add_column(header="[cyan][bold]Alias Name[/bold][/cyan]", min_width=5, max_width=15, no_wrap=True)
-        table.add_column(header="[cyan][bold]Path[/bold][/cyan]", min_width=10, max_width=30, no_wrap=True)
-        table.add_column(header="[cyan][bold]Description[/bold][/cyan]", min_width=10, max_width=50, no_wrap=True)
+        table.add_column(header="[cyan][bold]Path[/bold][/cyan]", min_width=10, max_width=25, no_wrap=True)
+        table.add_column(header="[cyan][bold]Description[/bold][/cyan]", min_width=10, max_width=30, no_wrap=True)
         table.add_column(header="[cyan][bold]Alias Age[/bold][/cyan]", max_width=20, no_wrap=True)
-        table.add_column(header="[cyan][bold]Last Used[/bold][/cyan]", max_width=10, no_wrap=True)
+        table.add_column(header="[cyan][bold]Last Used[/bold][/cyan]", max_width=20, no_wrap=True)
         table.add_column(header="[cyan][bold]Usage[/bold][/cyan]", justify="center")
         return table
 
@@ -278,5 +291,6 @@ class PathHandler:
         console.print(f"\n[{YELLOW}]Successfully [underline]deleted[/underline] {alias_name}[/{YELLOW}]\n")
 
     def write_config(self):
+        data = json.dumps(self.aliases, indent=4)
         with open(ALIASES_FILE, "w") as f:
-            json.dump(self.aliases, f, indent=4)
+            f.write(data)

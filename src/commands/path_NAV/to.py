@@ -38,8 +38,11 @@ def handle_to(args):
         sys.exit(1)
     print(resolved)
     alias_data['usage'] += 1
-    #TODO fix datetime so it prints as a string
-    alias_data['last_used'] = datetime.now()
-    handler.write_config()
+    alias_data['last_used'] = datetime.now().isoformat()
+
+    try:
+        handler.write_config()
+    except Exception:
+        pass
 
     sys.exit(0)
