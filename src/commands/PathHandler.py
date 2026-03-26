@@ -1,17 +1,8 @@
-from src.path_src import ALIASES_FILE
+from src.globals import ALIASES_FILE, console, YELLOW, GREEN, ORANGE, RED, TURQ
 from datetime import datetime, timezone
 from pathlib import Path
 import json
-from rich.console import Console
 from rich.table import Table
-
-console = Console()
-
-YELLOW = "yellow"
-GREEN = "#0af034"
-ORANGE = "#ab8a07"
-RED = "#c71208"
-TURQ = "#0799a3"
 
 class PathHandler:
     def __init__(self):
@@ -32,8 +23,11 @@ class PathHandler:
                 json.dump(config, f, indent=4)
         return config
 
+    def _is_active(self, alias_data):
+        return not alias_data.get("delete_info")
+
     def _get_alias_data(self, key):
-        return [data.get(key) for data in self.aliases.values()]
+        return [data.get(key) for data in self.aliases.values() if self._is_active(data)]
 
     def _validate_input(self, msg):
         while True:
@@ -53,7 +47,8 @@ class PathHandler:
     def add_new_alias(self, alias_name, path=None):
         self.new_alias = self._new_alias_blueprint()
         self.new_alias_name = alias_name
-        if alias_name in self.aliases:
+        existing = self.aliases.get(alias_name)
+        if existing and self._is_active(existing):
             raise ValueError(f"'{alias_name}' already exists")
         if not path:
             raise ValueError("A path must be provided. Use '.' to use the current directory.")
@@ -90,6 +85,7 @@ class PathHandler:
             "last_used": None,
             "usage": 0,
             "tags": [],
+            "delete_info": None,
         }
 
     def complete_add_transaction(self):
@@ -101,41 +97,50 @@ class PathHandler:
         console.print(f"\n[{GREEN}]Successfully added new alias[/{GREEN}]\n")
 
     ###### READ METHODS ######
-    def read_aliases(self, alias_name=None, search_val=None):
-        if not self.aliases:
+    def read_aliases(self, alias_name=None, search_val=None, show_all=False):
+        pool = self.aliases if show_all else {k: v for k, v in self.aliases.items() if self._is_active(v)}
+
+        if not pool:
             console.print(f"\n[i][{RED}]No data to display...[/{RED}][/i]\n")
             return
 
         if search_val:
-            matches = {k: v for k, v in self.aliases.items() if search_val.lower() in k.lower()}
+            matches = {k: v for k, v in pool.items() if search_val.lower() in k.lower()}
             if not matches:
                 console.print(f"\n[i][{RED}]No aliases matching '{search_val}'[/{RED}][/i]\n")
                 return
-            self._print_table(matches)
+            self._print_table(matches, show_all=show_all)
             return
 
         if alias_name:
-            if alias_name not in self.aliases:
+            if alias_name not in pool:
                 console.print(
                     f"\n[i][{RED}]'{alias_name}' is not an existing alias[/{RED}][/i]\n"
                 )
                 return
-            self._print_specific_alias({alias_name: self.aliases[alias_name]})
+            self._print_specific_alias({alias_name: pool[alias_name]})
             return
 
-        self._print_table(self.aliases)
+        self._print_table(pool, show_all=show_all)
 
     def _print_specific_alias(self, data):
         for alias, md in data.items():
+            last_used = md.get('last_used')
+            if last_used:
+                last_used_dt = datetime.fromisoformat(last_used)
+                if last_used_dt.date() == datetime.now().date():
+                    last_used = last_used_dt.strftime('%m-%d-%Y %I:%M %p')
+                else:
+                    last_used = last_used_dt.strftime('%m-%d-%Y')
             console.print(f"\n[{TURQ}]Alias Name:[/{TURQ}] {alias}")
-            console.print(f"[{TURQ}]Path:[/{TURQ}] {md.get('path', "---")}")
-            console.print(f"[{TURQ}]Description:[/{TURQ}] {md.get('description', "---")}")
-            console.print(f"[{TURQ}]Alias Age:[/{TURQ}]")
-            console.print(f"[{TURQ}]Last Used:[/{TURQ}]")
+            console.print(f"[{TURQ}]Path:[/{TURQ}] {md.get('path') or '---'}")
+            console.print(f"[{TURQ}]Description:[/{TURQ}] {md.get('description') or '---'}")
+            console.print(f"[{TURQ}]Alias Age:[/{TURQ}] {self._get_alias_age(md['created_at'])}")
+            console.print(f"[{TURQ}]Last Used:[/{TURQ}] {last_used or '---'}")
             console.print(f"[{TURQ}]Usage:[/{TURQ}] [{YELLOW}]{md.get('usage', 0)}[/{YELLOW}]\n")
 
-    def _print_table(self, data):
-        table = self._create_table()
+    def _print_table(self, data, show_all=False):
+        table = self._create_table(show_all=show_all)
         for alias, md in data.items():
             last_used = md.get('last_used')
             if last_used:
@@ -146,20 +151,26 @@ class PathHandler:
                     last_used = last_used_dt.strftime('%m-%d-%Y')
             path = md.get('path')
             usage = (
-                f"[{RED}]{md.get('usage')}[/{RED}]" if md.get('usage') == 0 else 
+                f"[{RED}]{md.get('usage')}[/{RED}]" if md.get('usage') == 0 else
                 f"[{YELLOW}]{md.get('usage')}[/{YELLOW}]" if md.get('usage') < 20 else
                 f"[{GREEN}]{md.get('usage')}[/{GREEN}]")
-            table.add_row(
+            row = [
                 alias,
                 f"[{YELLOW}]{self._shorten_path(path)}[/{YELLOW}]" if path else '---',
                 md.get('description') or '---',
                 self._get_alias_age(md['created_at']),
                 last_used or '---',
                 usage,
-            )
+            ]
+            if show_all:
+                if md.get('delete_info'):
+                    row.append(f"[{RED}]D[/{RED}]")
+                else:
+                    row.append(f"[{GREEN}]A[/{GREEN}]")
+            table.add_row(*row)
         console.print(table)
 
-    def _create_table(self):
+    def _create_table(self, show_all=False):
         table = Table(title="\n[bold]Alias List[/bold]\n", title_justify="center", caption="\n")
 
         table.add_column(header="[cyan][bold]Alias Name[/bold][/cyan]", min_width=5, max_width=15, no_wrap=True)
@@ -168,6 +179,8 @@ class PathHandler:
         table.add_column(header="[cyan][bold]Alias Age[/bold][/cyan]", max_width=20, no_wrap=True)
         table.add_column(header="[cyan][bold]Last Used[/bold][/cyan]", max_width=20, no_wrap=True)
         table.add_column(header="[cyan][bold]Usage[/bold][/cyan]", justify="center")
+        if show_all:
+            table.add_column(header="[cyan][bold]Status[/bold][/cyan]", justify="center")
         return table
 
     def _shorten_path(self, path_str):
@@ -177,6 +190,18 @@ class PathHandler:
             return "~/" + relative.as_posix()
         except ValueError:
             return path_str
+
+    def _pluralize(self, n, unit):
+        return f"{n} {unit}{'s' if n != 1 else ''}"
+
+    def _days_to_human(self, days: int):
+        if days == 0:
+            return ""
+        if days < 7:
+            return self._pluralize(days, "day")
+        if days < 42:
+            return self._pluralize(round(days / 7), "week")
+        return self._pluralize(round(days / 30.44), "month")
 
     def _get_alias_age(self, created_at: str):
         created = datetime.fromisoformat(created_at)
@@ -189,58 +214,37 @@ class PathHandler:
         total_days = delta.days
 
         if total_seconds < 60:
-            s = round(total_seconds)
-            return f"[{GREEN}]{s} second{'s' if s != 1 else ''}[/{GREEN}]"
-
+            return f"[{GREEN}]{self._pluralize(round(total_seconds), 'second')}[/{GREEN}]"
         if total_minutes < 50:
-            m = round(total_minutes)
-            return f"[{GREEN}]{m} minute{'s' if m != 1 else ''}[/{GREEN}]"
-
+            return f"[{GREEN}]{self._pluralize(round(total_minutes), 'minute')}[/{GREEN}]"
         if total_hours < 24:
-            h = max(1, round(total_hours))
-            return f"[{GREEN}]{h} hour{'s' if h != 1 else ''}[/{GREEN}]"
-
+            return f"[{GREEN}]{self._pluralize(max(1, round(total_hours)), 'hour')}[/{GREEN}]"
         if total_days < 7:
-            return f"[{GREEN}]{total_days} day{'s' if total_days != 1 else ''}[/{GREEN}]"
-
+            return f"[{GREEN}]{self._pluralize(total_days, 'day')}[/{GREEN}]"
         if total_days < 42:
-            w = round(total_days / 7)
-            return f"[{GREEN}]{w} week{'s' if w != 1 else ''}[/{GREEN}]"
-
+            return f"[{GREEN}]{self._pluralize(round(total_days / 7), 'week')}[/{GREEN}]"
         if total_days <= 366:
-            mo = round(total_days / 30.44)
-            return f"[{ORANGE}]{mo} month{'s' if mo != 1 else ''}[/{ORANGE}]"
+            return f"[{ORANGE}]{self._pluralize(round(total_days / 30.44), 'month')}[/{ORANGE}]"
 
         years = total_days // 365
-        remaining_days = total_days - (years * 365)
-        year_str = f"{years} year{'s' if years != 1 else ''}"
-
-        remainder = self._format_remaining_days(remaining_days)
+        year_str = self._pluralize(years, "year")
+        remainder = self._days_to_human(total_days - (years * 365))
         return f"[{RED}]{year_str} {remainder}[/{RED}]" if remainder else f"[{RED}]{year_str}[/{RED}]"
-
-    def _format_remaining_days(self, days: int):
-        if days == 0:
-            return ""
-        if days < 7:
-            return f"{days} day{'s' if days != 1 else ''}"
-        if days < 42:
-            w = round(days / 7)
-            return f"{w} week{'s' if w != 1 else ''}"
-        mo = round(days / 30.44)
-        return f"{mo} month{'s' if mo != 1 else ''}"
 
     ###### UPDATE METHODS ######
     def _get_alias(self, alias_name):
-        if alias_name not in self.aliases:
+        alias = self.aliases.get(alias_name)
+        if not alias or not self._is_active(alias):
             raise ValueError(f"'{alias_name}' does not exist")
-        return self.aliases[alias_name]
+        return alias
 
     def update_name(self, alias_name, new_name):
         self._get_alias(alias_name)
         if alias_name == new_name:
             console.print(f"\n[{YELLOW}]'{alias_name}' is already named that[/{YELLOW}]\n")
             return False
-        if new_name in self.aliases:
+        existing = self.aliases.get(new_name)
+        if existing and self._is_active(existing):
             raise ValueError(f"'{new_name}' is already in use")
         self.aliases[new_name] = self.aliases.pop(alias_name)
         return True
@@ -272,23 +276,123 @@ class PathHandler:
 
     ###### DELETE METHODS ######
 
-    def delete_alias(self, alias_name):
-        try:
-            res = self._validate_input("\nAre you sure you want to delete? Deletion is permanent. (y/N)")
-            if res.lower() in ['yes', 'y', 'yeah', 'yea', 'ye']:
+    def _soft_delete(self, alias_name, method):
+        self.aliases[alias_name]["delete_info"] = {
+            "deleted_at": str(datetime.now(timezone.utc).isoformat()),
+            "method": method,
+        }
 
-                self.aliases.pop(alias_name)
+    def delete_alias(self, alias_name, permanent=False):
+        try:
+            self._get_alias(alias_name)
+            res = self._validate_input("\nAre you sure you want to delete? (y/N)")
+            if res.lower() in ['yes', 'y', 'yeah', 'yea', 'ye']:
+                if permanent:
+                    del self.aliases[alias_name]
+                else:
+                    self._soft_delete(alias_name, "user_delete")
             else:
                 console.print(f"\n[{YELLOW}]Deletion cancelled...[/{YELLOW}]\n")
                 return
-        except KeyError:
-            console.print(f"\n[{YELLOW}]Error: {alias_name} does not exist. No aliases were removed.[/{YELLOW}]")
+        except ValueError as e:
+            console.print(f"\n[{YELLOW}]Error: {e}. No aliases were removed.[/{YELLOW}]")
             return
-        
+
         with open(ALIASES_FILE, 'w') as f:
             json.dump(self.aliases, f, indent=4)
-        
+
         console.print(f"\n[{YELLOW}]Successfully [underline]deleted[/underline] {alias_name}[/{YELLOW}]\n")
+
+    ###### DOCTOR METHODS ######
+
+    def doctor_paths(self, perm=False):
+        active = {k: v for k, v in self.aliases.items() if self._is_active(v)}
+        soft_deleted = {k: v for k, v in self.aliases.items() if not self._is_active(v)}
+        invalid = {name for name, data in active.items()
+                   if not Path(data.get("path", "")).exists()}
+
+        if not active and not soft_deleted:
+            console.print(f"\n[{GREEN}]No aliases found.[/{GREEN}]\n")
+            return
+
+        if active:
+            self._print_doctor_scan_table(active, invalid, perm)
+
+        if invalid:
+            if perm:
+                for name in invalid:
+                    del self.aliases[name]
+            else:
+                for name in invalid:
+                    self._soft_delete(name, "doctored")
+
+        if perm and soft_deleted:
+            self._print_doctor_purge_table(soft_deleted)
+            for name in soft_deleted:
+                del self.aliases[name]
+        elif not perm and soft_deleted:
+            console.print(f"[{YELLOW}]{len(soft_deleted)} soft-deleted alias(es) on record. Run with --perm-delete to purge permanently.[/{YELLOW}]\n")
+
+        if invalid or (perm and soft_deleted):
+            with open(ALIASES_FILE, "w") as f:
+                json.dump(self.aliases, f, indent=4)
+
+    def _print_doctor_scan_table(self, active, invalid, perm):
+        table = Table(
+            title="\n[bold]Doctor Report — Active Aliases[/bold]\n",
+            title_justify="center",
+            caption="\n"
+        )
+        table.add_column(header="[cyan][bold]Alias Name[/bold][/cyan]", min_width=5, max_width=15, no_wrap=True)
+        table.add_column(header="[cyan][bold]Path[/bold][/cyan]", min_width=10, max_width=30, no_wrap=True)
+        table.add_column(header="[cyan][bold]Description[/bold][/cyan]", min_width=10, max_width=25, no_wrap=True)
+        table.add_column(header="[cyan][bold]Status[/bold][/cyan]", justify="center", min_width=12)
+
+        for alias, data in active.items():
+            path = data.get("path")
+            if alias in invalid:
+                status_label = "Perm. Deleted" if perm else "Soft-deleted"
+                status = f"[{RED}]{status_label}[/{RED}]"
+            else:
+                status = f"[{GREEN}]Validated[/{GREEN}]"
+            table.add_row(
+                alias,
+                f"[{YELLOW}]{self._shorten_path(path)}[/{YELLOW}]" if path else "---",
+                data.get("description") or "---",
+                status,
+            )
+        console.print(table)
+
+    def _print_doctor_purge_table(self, soft_deleted):
+        table = Table(
+            title="\n[bold]Doctor Report — Purged Soft-Deleted Aliases[/bold]\n",
+            title_justify="center",
+            caption="\n"
+        )
+        table.add_column(header="[cyan][bold]Alias Name[/bold][/cyan]", min_width=5, max_width=15, no_wrap=True)
+        table.add_column(header="[cyan][bold]Path[/bold][/cyan]", min_width=10, max_width=30, no_wrap=True)
+        table.add_column(header="[cyan][bold]Description[/bold][/cyan]", min_width=10, max_width=25, no_wrap=True)
+        table.add_column(header="[cyan][bold]Deleted On[/bold][/cyan]", max_width=20, no_wrap=True)
+        table.add_column(header="[cyan][bold]Method[/bold][/cyan]", justify="center")
+
+        for alias, data in soft_deleted.items():
+            delete_info = data.get("delete_info") or {}
+            deleted_at = delete_info.get("deleted_at")
+            if deleted_at:
+                deleted_at_dt = datetime.fromisoformat(deleted_at)
+                deleted_at_str = deleted_at_dt.strftime('%m-%d-%Y %I:%M %p')
+            else:
+                deleted_at_str = "---"
+            method = delete_info.get("method", "---")
+            path = data.get("path")
+            table.add_row(
+                alias,
+                f"[{YELLOW}]{self._shorten_path(path)}[/{YELLOW}]" if path else "---",
+                data.get("description") or "---",
+                deleted_at_str,
+                f"[{TURQ}]{method}[/{TURQ}]",
+            )
+        console.print(table)
 
     def write_config(self):
         data = json.dumps(self.aliases, indent=4)

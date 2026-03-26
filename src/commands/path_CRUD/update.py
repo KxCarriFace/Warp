@@ -1,8 +1,6 @@
 import sys
 from src.commands.PathHandler import PathHandler
-from rich.console import Console
-
-console = Console()
+from src.globals import console, RED, YELLOW
 
 
 def reg_update_cmd(subparsers):
@@ -45,27 +43,28 @@ def update_alias(args, parser):
     alias_handler = PathHandler()
     try:
         changed = False
+        current_name = args.alias_name
 
         if args.name:
-            name_changed = alias_handler.update_name(args.alias_name, args.name)
+            name_changed = alias_handler.update_name(current_name, args.name)
             if name_changed:
                 changed = True
+                current_name = args.name
         if args.path:
-            path_changed = alias_handler.update_path(args.alias_name, args.path)
+            path_changed = alias_handler.update_path(current_name, args.path)
             if path_changed:
                 changed = True
         if args.description:
-            alias_handler.update_description(args.alias_name, args.description)
+            alias_handler.update_description(current_name, args.description)
             changed = True
 
         if changed:
-            final_name = args.name if args.name else args.alias_name
-            alias_handler.complete_update_transaction(final_name)
+            alias_handler.complete_update_transaction(current_name)
 
     except ValueError as e:
-        console.print(f"\n[red]{e}[/red]\n")
+        console.print(f"\n[{RED}]{e}[/{RED}]\n")
         sys.exit(1)
 
     except KeyboardInterrupt:
-        print("[yellow]\nAborted procedure safely[/yellow]")
+        console.print(f"\n[{YELLOW}]Aborted procedure safely[/{YELLOW}]")
         sys.exit(1)

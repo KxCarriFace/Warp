@@ -1,8 +1,6 @@
 import sys
 from src.commands.PathHandler import PathHandler
-from rich.console import Console
-
-console = Console()
+from src.globals import console, RED, YELLOW
 
 
 #REGISTER COMMANDS/SUBCOMMANDS AND OPTIONS
@@ -32,9 +30,6 @@ def reg_add_cmd(subparsers):
     parser.set_defaults(func=lambda args: add_alias(args, parser))
 
 def add_alias(args, parser):
-    if not any([args.alias, args.path]):
-        parser.error("An 'alias name' and a 'path' must be provided to create a new alias tag")
-
     alias_handler = PathHandler()
     try:
         alias_handler.add_new_alias(args.alias, args.path)
@@ -45,10 +40,10 @@ def add_alias(args, parser):
         alias_handler.complete_add_transaction()
 
     except ValueError as e:
-        console.print(f"\n[red]{e}[/red]\n")
+        console.print(f"\n[{RED}]{e}[/{RED}]\n")
         sys.exit(1)
-    
+
     except KeyboardInterrupt:
-        print("[yellow]\nAborted procedure safely[/yellow]")
+        console.print(f"\n[{YELLOW}]Aborted procedure safely[/{YELLOW}]")
         sys.exit(1)
 

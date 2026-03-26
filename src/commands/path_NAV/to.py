@@ -1,9 +1,7 @@
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from src.commands.PathHandler import PathHandler
-from rich.console import Console
-
-console = Console(stderr=True)
+from src.globals import stderr_console as console, RED
 
 def reg_to_cmd(subparsers):
     parser = subparsers.add_parser(
@@ -19,26 +17,22 @@ def reg_to_cmd(subparsers):
 
 
 def handle_to(args):
-    if not args.alias:
-        console.print("\nAn alias is required to warp through the file system.\n")
-        sys.exit(1)
-
     handler = PathHandler()
 
     try:
         alias_data = handler._get_alias(args.alias)
     except ValueError as e:
-        console.print(f"\n[red]Error: {e}[/red]\n")
+        console.print(f"\n[{RED}]Error: {e}[/{RED}]\n")
         sys.exit(1)
 
     try:
         resolved = handler._validate_path(alias_data["path"])
     except ValueError as e:
-        console.print(f"\n[red]{e}[/red]\n")
+        console.print(f"\n[{RED}]{e}[/{RED}]\n")
         sys.exit(1)
     print(resolved)
     alias_data['usage'] += 1
-    alias_data['last_used'] = datetime.now().isoformat()
+    alias_data['last_used'] = datetime.now(timezone.utc).isoformat()
 
     try:
         handler.write_config()

@@ -20,11 +20,17 @@ def reg_read_cmd(subparsers):
         help="Provides all aliases that match the search criteria"
     )
 
+    parser.add_argument(
+        "-a", "--all",
+        action="store_true",
+        help="Include soft-deleted aliases in the output"
+    )
+
     parser.set_defaults(func=read_alias)
 
 
 def read_alias(args):
     alias_handler = PathHandler()
 
-    alias_handler.read_aliases(alias_name=args.alias, search_val=args.search)
+    alias_handler.read_aliases(alias_name=args.alias, search_val=args.search, show_all=args.all)
     
