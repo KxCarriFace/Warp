@@ -25,18 +25,7 @@ else
     exit 1
 fi
 
-# ── 2. Skip download if already installed ─────────────────────────────────────
-
-if [ -d "$WARP_DIR" ]; then
-    echo ""
-    echo "Warp is already present at $WARP_DIR"
-    echo "Skipping download and jumping straight to install..."
-    echo ""
-    bash "$WARP_DIR/install.sh"
-    exit $?
-fi
-
-# ── 3. Download and extract the project ───────────────────────────────────────
+# ── 2. Download and extract the project ───────────────────────────────────────
 
 echo ""
 echo "Downloading Warp..."
@@ -61,12 +50,30 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# ── 4. Move project into place ────────────────────────────────────────────────
+# ── 3. Move or update project files ───────────────────────────────────────────
 
 mkdir -p "$HOME/.usr"
-mv "$TMP_DIR" "$WARP_DIR"
 
-echo "[done] Warp downloaded to $WARP_DIR"
+if [ -d "$WARP_DIR" ]; then
+    echo "Warp is already installed — updating source files..."
+    for item in "$TMP_DIR"/*/; do
+        name="$(basename "$item")"
+        [ "$name" = "config" ] && continue
+        [ "$name" = ".venv" ] && continue
+        [ "$name" = ".git" ] && continue
+        rm -rf "$WARP_DIR/$name"
+        cp -r "$TMP_DIR/$name" "$WARP_DIR/$name"
+    done
+    # copy root-level files
+    find "$TMP_DIR" -maxdepth 1 -type f | while read -r f; do
+        cp "$f" "$WARP_DIR/$(basename "$f")"
+    done
+    rm -rf "$TMP_DIR"
+    echo "[done] Source files updated"
+else
+    mv "$TMP_DIR" "$WARP_DIR"
+    echo "[done] Warp downloaded to $WARP_DIR"
+fi
 
 # ── 5. Hand off to install.sh ─────────────────────────────────────────────────
 
