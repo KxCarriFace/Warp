@@ -123,11 +123,16 @@ class PathHandler:
 
         self._print_table(pool, show_all=show_all)
 
+    def _to_local(self, dt):
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone()
+
     def _print_specific_alias(self, data):
         for alias, md in data.items():
             last_used = md.get('last_used')
             if last_used:
-                last_used_dt = datetime.fromisoformat(last_used)
+                last_used_dt = self._to_local(datetime.fromisoformat(last_used))
                 if last_used_dt.date() == datetime.now().date():
                     last_used = last_used_dt.strftime('%m-%d-%Y %I:%M %p')
                 else:
@@ -144,7 +149,7 @@ class PathHandler:
         for alias, md in data.items():
             last_used = md.get('last_used')
             if last_used:
-                last_used_dt = datetime.fromisoformat(last_used)
+                last_used_dt = self._to_local(datetime.fromisoformat(last_used))
                 if last_used_dt.date() == datetime.now().date():
                     last_used = last_used_dt.strftime('%m-%d-%Y %I:%M %p')
                 else:
@@ -379,7 +384,7 @@ class PathHandler:
             delete_info = data.get("delete_info") or {}
             deleted_at = delete_info.get("deleted_at")
             if deleted_at:
-                deleted_at_dt = datetime.fromisoformat(deleted_at)
+                deleted_at_dt = self._to_local(datetime.fromisoformat(deleted_at))
                 deleted_at_str = deleted_at_dt.strftime('%m-%d-%Y %I:%M %p')
             else:
                 deleted_at_str = "---"
