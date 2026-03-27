@@ -5,8 +5,8 @@ from src.globals import console, RED, YELLOW
 
 def reg_update_cmd(subparsers):
     parser = subparsers.add_parser(
-        'update',
-        help="Update an existing alias"
+        'edit',
+        help="Edit an existing alias"
     )
 
     parser.add_argument(

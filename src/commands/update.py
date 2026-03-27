@@ -80,7 +80,6 @@ def _fetch_changelog_since(local, remote):
 
         result = []
         for header, lines in sections:
-            # Extract version from "## [1.0.1] - 2026-03-27"
             version = header.split("[")[1].split("]")[0]
             if _parse_version(version) <= _parse_version(local):
                 break
@@ -90,6 +89,19 @@ def _fetch_changelog_since(local, remote):
         return result
     except Exception:
         return None
+
+
+def show_version():
+    local = _local_version()
+    console.print(f"Warp v{local}")
+    try:
+        remote = _fetch_remote_version()
+        if _parse_version(remote) > _parse_version(local):
+            console.print(f"[{YELLOW}]Update available: v{remote}. Run [bold]warp update[/bold] to install.[/{YELLOW}]")
+        else:
+            console.print(f"[{GREEN}]You're up to date.[/{GREEN}]")
+    except Exception:
+        pass
 
 
 def run_update(args):
@@ -105,18 +117,19 @@ def run_update(args):
         console.print(f"[{GREEN}]Already up to date (v{local})[/{GREEN}]")
         return
 
-    console.print(f"\nUpdate available: v{local} \u2192 v{remote}\n")
+    if args.details:
+        sections = _fetch_changelog_since(local, remote)
+        if sections:
+            console.print(f"\n[{YELLOW}]Changes from v{local} to v{remote}:[/{YELLOW}]\n")
+            for header, lines in sections:
+                console.print(f"  [{YELLOW}]{header}[/{YELLOW}]")
+                for line in lines:
+                    if line.strip():
+                        console.print(f"  {line}")
+            console.print("")
+        return
 
-    sections = _fetch_changelog_since(local, remote)
-    if sections:
-        console.print(f"[{YELLOW}]What's new:[/{YELLOW}]")
-        for header, lines in sections:
-            console.print(f"  [{YELLOW}]{header}[/{YELLOW}]")
-            for line in lines:
-                if line.strip():
-                    console.print(f"  {line}")
-        console.print("")
-
+    console.print(f"Update available: v{local} \u2192 v{remote}")
     confirm = input("Update now? [y/N] ").strip().lower()
     if confirm != 'y':
         console.print("Update cancelled.")
@@ -154,7 +167,17 @@ def run_update(args):
 
         # Reset cache so the next run re-checks against the new version
         CACHE_FILE.unlink(missing_ok=True)
-        console.print(f"[{GREEN}]Updated to v{remote} successfully![/{GREEN}]")
+        console.print(f"[{GREEN}]Updated to v{remote} successfully![/{GREEN}]\n")
+
+        sections = _fetch_changelog_since(local, remote)
+        if sections:
+            console.print(f"[{YELLOW}]What changed:[/{YELLOW}]")
+            for header, lines in sections:
+                console.print(f"  [{YELLOW}]{header}[/{YELLOW}]")
+                for line in lines:
+                    if line.strip():
+                        console.print(f"  {line}")
+            console.print("")
 
     except Exception as e:
         console.print(f"[{RED}]Update failed: {e}[/{RED}]")
@@ -162,4 +185,5 @@ def run_update(args):
 
 def reg_update_cmd(subparsers):
     p = subparsers.add_parser("update", help="Check for and install updates")
+    p.add_argument("--details", action="store_true", help="Show what changed without updating")
     p.set_defaults(func=run_update)
