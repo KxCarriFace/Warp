@@ -3,6 +3,9 @@
 - `install.sh` now detects OS and uses correct venv paths (`.venv/bin/python` on Linux/macOS vs `.venv/Scripts/python.exe` on Windows)
 - Shell config injection now targets the active shell (`.zshrc` for zsh, `.bashrc` for bash) instead of always writing to `.bashrc`
 - Added `python3-venv` install hint for Ubuntu/Debian if virtual environment creation fails
+- Fixed `warp update` crashing on Windows with `WinError 32` (file in use) when replacing `src/` directory
+- Fixed `warp list` crashing with `TypeError` if an alias had a timezone-naive `created_at` timestamp
+- Fixed unclear error message when downloaded update archive is empty or malformed
 
 ## [1.0.1] - 2026-03-27
 - Fixed last used time displaying in UTC instead of local timezone

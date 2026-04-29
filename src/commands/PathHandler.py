@@ -210,6 +210,8 @@ class PathHandler:
 
     def _get_alias_age(self, created_at: str):
         created = datetime.fromisoformat(created_at)
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
         now = datetime.now(timezone.utc)
         delta = now - created
 

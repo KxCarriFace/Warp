@@ -152,16 +152,17 @@ def run_update(args):
                     tf.extractall(extract_dir)
 
             # GitHub tarballs extract into one subdirectory (e.g. Warp-main/)
-            extracted_root = next(extract_dir.iterdir())
+            contents = list(extract_dir.iterdir())
+            if not contents:
+                raise ValueError("Downloaded archive is empty or malformed")
+            extracted_root = contents[0]
 
             for item in extracted_root.iterdir():
                 if item.name in SKIP:
                     continue
                 dest = ROOT_DIR / item.name
                 if item.is_dir():
-                    if dest.exists():
-                        shutil.rmtree(dest)
-                    shutil.copytree(item, dest)
+                    shutil.copytree(item, dest, dirs_exist_ok=True)
                 else:
                     shutil.copy2(item, dest)
 
