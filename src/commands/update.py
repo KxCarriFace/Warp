@@ -50,9 +50,9 @@ def check_for_update():
     """Returns remote version string if update is available, else None. Silent on error."""
     if not _should_check():
         return None
+    CACHE_FILE.write_text(datetime.now().isoformat())
     try:
         remote = _fetch_remote_version()
-        CACHE_FILE.write_text(datetime.now().isoformat())
         if _parse_version(remote) > _parse_version(_local_version()):
             return remote
     except Exception:
