@@ -11,14 +11,14 @@ warp to proj
 
 ## Requirements
 
-- Python 3.3+
 - Bash (Git Bash on Windows, or any standard Linux/macOS terminal)
+- No Python or runtime dependencies required — Warp ships as a self-contained binary
 
 ---
 
 ## Installation
 
-Download and run the bootstrap script — it handles everything else automatically:
+Download and run the bootstrap script — it handles everything automatically:
 
 ```bash
 curl -sL https://raw.githubusercontent.com/KxCarriFace/warp/main/setup.sh | bash
@@ -31,17 +31,16 @@ wget -qO- https://raw.githubusercontent.com/KxCarriFace/warp/main/setup.sh | bas
 ```
 
 `setup.sh` will:
-1. Download the project files into `$HOME/.usr/warp`
-2. Check Python 3 is installed (exits with instructions if not)
-3. Create a Python virtual environment (`.venv`)
-4. Install all dependencies from `requirements.txt`
-5. Add Warp to your shell by sourcing `warp.sh` in `~/.bashrc`
-6. Create a default `home` alias pointing to your home directory
-7. Reload your shell so Warp is available immediately
+1. Detect your OS (Linux, macOS, or Windows/Git Bash)
+2. Download the pre-built binary for your platform from the latest GitHub release
+3. Place everything in `$HOME/.usr/warp`
+4. Add Warp to your shell by sourcing `warp.sh` in `~/.bashrc` (or `~/.zshrc` for zsh)
+5. Create a default `home` alias pointing to your home directory
+6. Reload your shell so Warp is available immediately
 
 If `warp` is not recognized after setup, run `source ~/.bashrc` manually.
 
-> Already have the project downloaded? You can run `install.sh` directly:
+> Already have the files in place? You can run `install.sh` directly:
 > ```bash
 > bash "$HOME/.usr/warp/install.sh"
 > ```

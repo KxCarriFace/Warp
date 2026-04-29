@@ -2,7 +2,7 @@ from pathlib import Path
 from rich.console import Console
 
 # Paths
-ROOT_DIR = Path(__file__).resolve().parents[1]
+ROOT_DIR = Path.home() / ".usr" / "warp"
 CONFIG_DIR = ROOT_DIR / "config"
 ALIASES_FILE = CONFIG_DIR / "alias.json"
 
