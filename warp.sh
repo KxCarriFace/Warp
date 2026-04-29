@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 
 warp() {
-    warp_python_exe="$HOME/.usr/warp/.venv/Scripts/python.exe"
-warp_cli_handler="$HOME/.usr/warp/cli.py"
+    if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || "$OSTYPE" == "win32" ]]; then
+        warp_python_exe="$HOME/.usr/warp/.venv/Scripts/python.exe"
+    else
+        warp_python_exe="$HOME/.usr/warp/.venv/bin/python"
+    fi
+    warp_cli_handler="$HOME/.usr/warp/cli.py"
 
 case "$1" in
     to)

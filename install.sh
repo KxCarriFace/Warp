@@ -2,10 +2,16 @@
 
 WARP_DIR="$HOME/.usr/warp"
 WARP_SH="$WARP_DIR/warp.sh"
-WARP_PYTHON="$WARP_DIR/.venv/Scripts/python.exe"
-WARP_PIP="$WARP_DIR/.venv/Scripts/pip"
-BASHRC="$HOME/.bashrc"
 SOURCE_LINE="source \"$WARP_DIR/warp.sh\""
+
+# Detect OS and set venv binary paths
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || "$OSTYPE" == "win32" ]]; then
+    WARP_PYTHON="$WARP_DIR/.venv/Scripts/python.exe"
+    WARP_PIP="$WARP_DIR/.venv/Scripts/pip"
+else
+    WARP_PYTHON="$WARP_DIR/.venv/bin/python"
+    WARP_PIP="$WARP_DIR/.venv/bin/pip"
+fi
 
 # ── 1. Check Python is installed ──────────────────────────────────────────────
 
@@ -84,6 +90,9 @@ else
         echo "ERROR: Failed to create the virtual environment."
         echo "Make sure the 'venv' module is available (it ships with Python 3.3+)."
         echo ""
+        echo "On Ubuntu/Debian, install it with:"
+        echo "  sudo apt install python3-venv"
+        echo ""
         exit 1
     fi
     echo "[done] Virtual environment created"
@@ -111,17 +120,30 @@ if [ $? -ne 0 ]; then
 fi
 echo "[done] Dependencies installed"
 
-# ── 5. Add source line to .bashrc ─────────────────────────────────────────────
+# ── 5. Add source line to shell config ────────────────────────────────────────
 
-if grep -qF "$SOURCE_LINE" "$BASHRC" 2>/dev/null; then
-    echo "[skip] warp.sh is already sourced in $BASHRC"
-else
-    {
-        echo ""
-        echo "# Warp — filesystem alias navigator"
-        echo "$SOURCE_LINE"
-    } >> "$BASHRC"
-    echo "[done] Added warp.sh source line to $BASHRC"
+_warp_add_source() {
+    local cfg="$1"
+    if grep -qF "$SOURCE_LINE" "$cfg" 2>/dev/null; then
+        echo "[skip] warp.sh is already sourced in $cfg"
+    else
+        { echo ""; echo "# Warp — filesystem alias navigator"; echo "$SOURCE_LINE"; } >> "$cfg"
+        echo "[done] Added warp.sh source line to $cfg"
+    fi
+}
+
+CURRENT_SHELL="$(basename "${SHELL:-bash}")"
+
+case "$CURRENT_SHELL" in
+    zsh)  SHELL_RC="$HOME/.zshrc" ;;
+    *)    SHELL_RC="$HOME/.bashrc" ;;
+esac
+
+_warp_add_source "$SHELL_RC"
+
+# On macOS, bash login shells use .bash_profile — add there too if it exists
+if [ "$CURRENT_SHELL" = "bash" ] && [ -f "$HOME/.bash_profile" ]; then
+    _warp_add_source "$HOME/.bash_profile"
 fi
 
 # ── 6. Create config/alias.json with default home alias ───────────────────────
@@ -165,10 +187,10 @@ PYEOF
     fi
 fi
 
-# ── 7. Reload .bashrc ─────────────────────────────────────────────────────────
+# ── 7. Reload shell config ────────────────────────────────────────────────────
 
 # shellcheck disable=SC1090
-source "$BASHRC"
+source "$SHELL_RC" 2>/dev/null || true
 
 echo ""
 echo "Setup complete. Warp is ready to use."
@@ -176,5 +198,5 @@ echo ""
 echo "  Try it:  warp list"
 echo ""
 echo "NOTE: If 'warp' is not found in your current terminal, run:"
-echo "  source ~/.bashrc"
+echo "  source $SHELL_RC"
 echo ""
