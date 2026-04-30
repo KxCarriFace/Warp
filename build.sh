@@ -21,6 +21,7 @@ pyinstaller \
     --distpath ./dist \
     --workpath ./build \
     --specpath . \
+    --collect-all rich \
     cli.py
 
 echo ""
