@@ -1,22 +1,28 @@
+import sys
+import os
 import urllib.request
-import tarfile
 import tempfile
 import shutil
-import sys
 from datetime import datetime
 from pathlib import Path
 from src.globals import ROOT_DIR, console, GREEN, YELLOW, RED
 
-REPO = "KxCarriFace/Warp"
+REPO = "KxCarriFace/warp"
 BRANCH = "main"
 RAW_VERSION_URL = f"https://raw.githubusercontent.com/{REPO}/{BRANCH}/VERSION"
 RAW_CHANGELOG_URL = f"https://raw.githubusercontent.com/{REPO}/{BRANCH}/CHANGELOG.md"
-TARBALL_URL = f"https://github.com/{REPO}/archive/refs/heads/{BRANCH}.tar.gz"
+RELEASES_BASE = f"https://github.com/{REPO}/releases/latest/download"
 CACHE_FILE = ROOT_DIR / "config" / ".update_cache"
 CHECK_INTERVAL = 86400  # 24 hours
 
-# These are never touched during an update — user data and environment
-SKIP = {"config", ".venv", ".git"}
+
+def _platform_asset():
+    if sys.platform == "win32":
+        return "warp-windows.exe", "warp.exe"
+    elif sys.platform == "darwin":
+        return "warp-macos", "warp"
+    else:
+        return "warp-linux", "warp"
 
 
 def _parse_version(v):
@@ -129,44 +135,38 @@ def run_update(args):
             console.print("")
         return
 
-    console.print(f"Update available: v{local} \u2192 v{remote}")
+    console.print(f"Update available: v{local} → v{remote}")
     confirm = input("Update now? [y/N] ").strip().lower()
     if confirm != 'y':
         console.print("Update cancelled.")
         return
 
+    asset_name, binary_name = _platform_asset()
+    binary_url = f"{RELEASES_BASE}/{asset_name}"
+    warp_sh_url = f"{RELEASES_BASE}/warp.sh"
+
+    binary_dest = ROOT_DIR / binary_name
+    warp_sh_dest = ROOT_DIR / "warp.sh"
+    version_dest = ROOT_DIR / "VERSION"
+
     console.print("Downloading update...")
     try:
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
-            tarball = tmp_path / "warp.tar.gz"
 
-            urllib.request.urlretrieve(TARBALL_URL, tarball)
+            tmp_binary = tmp_path / binary_name
+            urllib.request.urlretrieve(binary_url, tmp_binary)
 
-            extract_dir = tmp_path / "extracted"
-            extract_dir.mkdir()
-            with tarfile.open(tarball) as tf:
-                if sys.version_info >= (3, 12):
-                    tf.extractall(extract_dir, filter='data')
-                else:
-                    tf.extractall(extract_dir)
+            tmp_warp_sh = tmp_path / "warp.sh"
+            urllib.request.urlretrieve(warp_sh_url, tmp_warp_sh)
 
-            # GitHub tarballs extract into one subdirectory (e.g. Warp-main/)
-            contents = list(extract_dir.iterdir())
-            if not contents:
-                raise ValueError("Downloaded archive is empty or malformed")
-            extracted_root = contents[0]
+            shutil.copy2(tmp_binary, binary_dest)
+            if sys.platform != "win32":
+                os.chmod(binary_dest, 0o755)
 
-            for item in extracted_root.iterdir():
-                if item.name in SKIP:
-                    continue
-                dest = ROOT_DIR / item.name
-                if item.is_dir():
-                    shutil.copytree(item, dest, dirs_exist_ok=True)
-                else:
-                    shutil.copy2(item, dest)
+            shutil.copy2(tmp_warp_sh, warp_sh_dest)
+            version_dest.write_text(remote)
 
-        # Reset cache so the next run re-checks against the new version
         CACHE_FILE.unlink(missing_ok=True)
         console.print(f"[{GREEN}]Updated to v{remote} successfully![/{GREEN}]\n")
 

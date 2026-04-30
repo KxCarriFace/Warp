@@ -65,7 +65,7 @@ fi
 
 echo "[done] Binary downloaded to $WARP_DIR/$BINARY_NAME"
 
-# ── 4. Also download warp.sh ──────────────────────────────────────────────────
+# ── 4. Also download warp.sh and VERSION ─────────────────────────────────────
 
 WARP_SH_URL="https://github.com/$GITHUB_USER/$GITHUB_REPO/releases/latest/download/warp.sh"
 
@@ -87,6 +87,27 @@ if [ $? -ne 0 ] || [ ! -s "$WARP_DIR/warp.sh" ]; then
 fi
 
 echo "[done] warp.sh downloaded"
+
+VERSION_URL="https://github.com/$GITHUB_USER/$GITHUB_REPO/releases/latest/download/VERSION"
+
+if [ "$DOWNLOADER" = "curl" ]; then
+    curl -sL "$VERSION_URL" -o "$WARP_DIR/VERSION"
+else
+    wget -qO "$WARP_DIR/VERSION" "$VERSION_URL"
+fi
+
+if [ $? -ne 0 ] || [ ! -s "$WARP_DIR/VERSION" ]; then
+    rm -f "$WARP_DIR/VERSION"
+    echo ""
+    echo "ERROR: Failed to download VERSION."
+    echo ""
+    echo "Check that the release includes VERSION:"
+    echo "  $VERSION_URL"
+    echo ""
+    exit 1
+fi
+
+echo "[done] VERSION downloaded"
 
 # ── 5. Hand off to install.sh ─────────────────────────────────────────────────
 
