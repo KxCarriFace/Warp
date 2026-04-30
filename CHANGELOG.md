@@ -1,3 +1,9 @@
+## [1.0.3] - 2026-04-29
+- Migrated from Python script to self-contained binary — Python is no longer required on the user's machine
+- `warp update` now downloads the platform binary from GitHub releases instead of the Python source tarball
+- Fresh installs now correctly track the installed version (no more false update prompts)
+- Added `build.sh` to produce platform binaries with PyInstaller
+
 ## [1.0.2] - 2026-04-29
 - Fixed compatibility with Ubuntu, Debian, and other Linux distros
 - `install.sh` now detects OS and uses correct venv paths (`.venv/bin/python` on Linux/macOS vs `.venv/Scripts/python.exe` on Windows)
