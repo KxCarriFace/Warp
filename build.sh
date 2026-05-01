@@ -12,6 +12,9 @@
 set -e
 
 echo ""
+echo "Stripping CRLF line endings from shell scripts..."
+sed -i 's/\r//' install.sh setup.sh warp.sh
+echo ""
 echo "Building warp binary..."
 echo ""
 
