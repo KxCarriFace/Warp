@@ -1,8 +1,6 @@
 import sys
 import os
 import urllib.request
-import tempfile
-import shutil
 from datetime import datetime
 from pathlib import Path
 from src.globals import ROOT_DIR, console, GREEN, YELLOW, RED
@@ -151,20 +149,20 @@ def run_update(args):
 
     console.print("Downloading update...")
     try:
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_path = Path(tmp)
-
-            tmp_binary = tmp_path / binary_name
-            urllib.request.urlretrieve(binary_url, tmp_binary)
-
-            tmp_warp_sh = tmp_path / "warp.sh"
-            urllib.request.urlretrieve(warp_sh_url, tmp_warp_sh)
-
-            shutil.copy2(tmp_binary, binary_dest)
+        staging_binary = binary_dest.with_suffix(".tmp")
+        staging_warp_sh = warp_sh_dest.with_suffix(".tmp")
+        try:
+            urllib.request.urlretrieve(binary_url, staging_binary)
             if sys.platform != "win32":
-                os.chmod(binary_dest, 0o755)
+                os.chmod(staging_binary, 0o755)
+            os.replace(staging_binary, binary_dest)
 
-            shutil.copy2(tmp_warp_sh, warp_sh_dest)
+            urllib.request.urlretrieve(warp_sh_url, staging_warp_sh)
+            os.replace(staging_warp_sh, warp_sh_dest)
+        except Exception:
+            staging_binary.unlink(missing_ok=True)
+            staging_warp_sh.unlink(missing_ok=True)
+            raise
             version_dest.write_text(remote)
 
         CACHE_FILE.unlink(missing_ok=True)
